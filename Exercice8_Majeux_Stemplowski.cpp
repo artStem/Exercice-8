@@ -9,7 +9,7 @@
 
 using namespace std;
 typedef vector<complex<double> > vec_cmplx;
-
+long double constexpr M_PI=3.14159265358979323846264338327950288419716939937510582097494459230e0;
 // Fonction resolvant le systeme d'equations A * solution = rhs
 // ou A est une matrice tridiagonale
 template <class T> void triangular_solve(vector<T> const& diag,
@@ -45,7 +45,7 @@ template <class T> void triangular_solve(vector<T> const& diag,
 // Potentiel V(x) : // TODO
 double V(double const& x, double const& omega2, double const& Delta)
 {
-  return 0.0;
+  return 0.5*omega2*min((x-Delta)*(x-Delta), (x+Delta)*(x+Delta));
 }
 
 // Declaration des diagnostics de la particule d'apres sa fonction d'onde psi :
@@ -55,7 +55,7 @@ double V(double const& x, double const& omega2, double const& Delta)
 //  - x2moy calcule sa position au carre moyenne,
 //  - pmoy calcule sa quantite de mouvement moyenne,
 //  - p2moy calcule sa quantite de mouvement au carre moyenne.
-double prob(vec_cmplx const& psi, int nL, int nR, double dx);
+double prob(vec_cmplx const& psi, int nL, unsigned int nR, double dx);
 double E(vec_cmplx const& psi, vec_cmplx const& diagH, vec_cmplx const& lowerH, vec_cmplx const& upperH, double const& dx);
 double xmoy(vec_cmplx const& psi, const vector<double>& x, double const& dx);
 double x2moy(vec_cmplx const& psi, const vector<double>& x, double const& dx);
@@ -70,7 +70,7 @@ vec_cmplx normalize(vec_cmplx const& psi, double const& dx);
 
 int main(int argc,char **argv)
 {
-  complex<double> complex_i = complex<double> (0,1); // Nombre imaginaire i
+  //complex<double> complex_i = complex<double> (0,1); // Nombre imaginaire i
 
   string inputPath("configuration.in"); // Fichier d'input par defaut
   if(argc>1) // Fichier d'input specifie par l'utilisateur ("./Exercice8 config_perso.in")
@@ -113,7 +113,7 @@ int main(int argc,char **argv)
   vec_cmplx psi(Npoints);
   // TODO: initialiser le paquet d'onde, equation (4.116) du cours
   for(int i(0); i<Npoints; ++i)
-    psi[i] =  complex<double> (1.,0.)* sin(M_PI*(x[i]-xL)/(xR-xL)); // MODIFY
+    psi[i] =  complex<double> (cos(k0*x[i]),sin(k0*x[i]))* exp(-0.5*pow(((x[i]-x0)/((xR - xL)*sigma0)),2.0)); // MODIFY
   // Modifications des valeurs aux bords :
   psi[0] = complex<double> (0.,0.);
   psi[Npoints-1] = complex<double> (0.,0.);
@@ -125,27 +125,31 @@ int main(int argc,char **argv)
   vec_cmplx dA(Npoints), aA(Ninters), cA(Ninters); // matrice du membre de gauche de l'equation (4.99)
   vec_cmplx dB(Npoints), aB(Ninters), cB(Ninters); // matrice du membre de droite de l'equation (4.99)
 
-  complex<double> a; // Coefficient complexe a, Eq.(4.100)
-  complex<double> b; // Coefficient complexe b, Eq.(4.100)
+  complex<double> a(-hbar*hbar/(2.0*m*dx*dx),0.0); // Coefficient complexe a (devant matrice dérivé seconde)
+  complex<double> b(0.0, 0.5*dt/hbar); // Coefficient complexe b (coef multipliant H pour former A et B)
 
   // TODO: calculer les elements des matrices A, B et H.
   // Ces matrices sont stockees sous forme tridiagonale, d:diagonale, c et a: diagonales superieures et inferieures
   for(int i(0); i<Npoints; ++i) // Boucle sur les points de maillage
   {
-    dH[i] = complex<double> (1.,0.); // MODIFIER
-    dA[i] = complex<double> (1.,0.); // MODIFIER
-    dB[i] = complex<double> (1.,0.); // MODIFIER
+    dH[i] = complex<double> (V(x[i], omega2, Delta),0.0) - 2.0*a; // MODIFIER
+    dA[i] = 1.0 + b*dH[i]; // MODIFIER
+    dB[i] = 1.0 - b*dH[i]; // MODIFIER
   }
   for(int i(0); i<Ninters; ++i) // Boucle sur les intervalles
   {
-    aH[i] = cH[i] = complex<double> (0.,0.); // MODIFIER
-    aA[i] = cA[i] = complex<double> (0.,0.); // MODIFIER
-    aB[i] = cB[i] = complex<double> (0.,0.); // MODIFIER
+    aH[i] = cH[i] =  a; // MODIFIER
+    aA[i] = cA[i] =  b*cH[i]; // MODIFIER
+    aB[i] = cB[i] = -b*cH[i]; // MODIFIER
   }
 
   // Conditions aux limites: psi nulle aux deux bords
   // TODO: Modifier les matrices A et B pour satisfaire les conditions aux limites
   // INSERER ICI
+  dA[0] = dA[Npoints-1] = 1.0;
+  dB[0] = dB[Npoints-1] = 0.0;
+  cA[0] = aA[0] = cA[Ninters -1] = aA[Ninters-1] = 0.0;
+  cB[0] = aB[0] = cB[Ninters -1] = aB[Ninters-1] = 0.0;
 
   // Fichiers de sortie :
   ofstream fichier_potentiel((configFile.get<string>("output_potential")).c_str());
@@ -263,12 +267,13 @@ int main(int argc,char **argv)
 }
 
 
-double prob(vec_cmplx const& psi, int nL, int nR, double dx)
+double prob(vec_cmplx const& psi, int nL, unsigned int nR, double dx)
 {
   //TODO: calculer la probabilite de trouver la particule entre les points nL et nR
   //Utiliser la formule des trapezes pour l'integration
   double resultat(0.);
-  resultat=1.; // MODIFIER
+  for (unsigned int i(nL); i < nR; ++i) resultat += 0.5*dx*(norm(psi[i]) + norm(psi[i+1])); // MODIFIER
+  	// attention : la fonction norm calcule le module carré d'un nombre complexe
   return resultat;
 }
 
@@ -280,11 +285,16 @@ double E(vec_cmplx const& psi, vec_cmplx const& diagH, vec_cmplx const& lowerH, 
   double resultat(0.); // initialiser
 
   // H(psi): produit de la matrice H et du  vecteur psi
-  for(unsigned int i(0); i<diagH.size(); ++i)
-    psi_tmp[i] = 1.0; // MODIFIER
+  psi_tmp[0] = diagH[0]*psi[0] + upperH[0]*psi[1];
+  for(unsigned int i(1); i<diagH.size()-1; ++i) {
+  	psi_tmp[i] = lowerH[i-1]*psi[i-1] + diagH[i]*psi[i] + upperH[i]*psi[i+1];
+  }
+  psi_tmp.back() = psi[psi.size()-2]*lowerH.back() + psi.back()*diagH.back();
  
-  // Integrale de psi* H(psi) dx
-  resultat=1.0; // MODIFIER	 
+  // Integrale de psi* H(psi) dx par la méthode des trapèzes
+  for (unsigned int i(0); i<psi.size()-2; ++i) {
+  	resultat += 0.5*dx*real(conj(psi[i])*psi_tmp[i] + conj(psi[i+1])*psi_tmp[i+1]);
+  } 
 
   return resultat;
 }
@@ -293,14 +303,18 @@ double E(vec_cmplx const& psi, vec_cmplx const& diagH, vec_cmplx const& lowerH, 
 double xmoy(vec_cmplx const& psi, const vector<double>& x, double const& dx)
 {
   double resultat(0.);
-  // MODIFIER
+  for (unsigned int i(0); i<psi.size()-2; ++i) {
+  	resultat += 0.5*dx*(x[i]*norm(psi[i]) + x[i+1]*norm(psi[i+1]));
+  }
   return resultat;
 }
 
 double x2moy(vec_cmplx const& psi, const vector<double>& x, double const& dx)
 {
   double resultat(0.);
-  // MODIFIER
+  for (unsigned int i(0); i<psi.size()-2; ++i) {
+  	resultat += 0.5*dx*(x[i]*x[i]*norm(psi[i]) + x[i+1]*x[i+1]*norm(psi[i+1]));
+  }
   return resultat;
 }
 
@@ -308,13 +322,23 @@ double x2moy(vec_cmplx const& psi, const vector<double>& x, double const& dx)
 double pmoy(vec_cmplx const& psi, double const& dx)
 {
   complex<double> complex_i = complex<double> (0,1); // Nombre imaginaire i
+  vec_cmplx p_on_psi(psi.size());
   unsigned int N(psi.size());
   // Utiliser la definition de p = -i hbar d/dx
   // Utiliser les differences finies centrees pour d/dx
   // Utiliser la formule des trapezes pour l'integration sur x
   // Ignorer la contribution du premier et du dernier point de maillage
+  p_on_psi[0] = -complex_i * (psi[1] - psi[0])/dx;
+  for (unsigned int i(1); i<N-2; ++i) {
+  	p_on_psi[i] = -complex_i * 0.5*(psi[i+1] - psi[i-1])/dx;
+  }
+  p_on_psi.back() = -complex_i * (psi[N-2] - psi.back())/dx;
+
+
   double resultat(0.);
-  // MODIFIER
+  for (unsigned int i(0); i<N-2; ++i) {
+  	resultat += 0.5*dx*real(conj(psi[i])*p_on_psi[i] + conj(psi[i+1])*p_on_psi[i+1]);
+  }
   return resultat;
 }
 
@@ -322,12 +346,22 @@ double pmoy(vec_cmplx const& psi, double const& dx)
 double p2moy(vec_cmplx const& psi, double const& dx)
 {
   double resultat(0.);
-  // Utiliser la definition de p^2 = hbar^2 d^2/dx2
+  vec_cmplx pp_on_psi(psi.size());
+  // Utiliser la definition de p^2 = - hbar^2 d^2/dx2
   // Utiliser les differences finies centrees pour d^2/dx^2
   // Utiliser la formule des trapezes pour l'integration sur x
   // Ignorer la contribution du premier et du dernier point de maillage
+  pp_on_psi[0] = 0;
+  for (unsigned int i(1); i<psi.size()-2; ++i) {
+  	pp_on_psi[i] = (2.0*psi[i] - psi[i+1] - psi[i-1])/(dx*dx);
+  }
+  pp_on_psi.back() = 0;
 
-  // MODIFIER
+
+  for (unsigned int i(0); i<psi.size()-2; ++i) {
+  	resultat += 0.5*dx*real(conj(psi[i])*pp_on_psi[i] + conj(psi[i+1])*pp_on_psi[i+1]);
+  }
+
   return resultat;
 }
 
