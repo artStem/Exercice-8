@@ -1,0 +1,23 @@
+% Physique :
+tfin = 2.0e3       % temps final de la simulation
+hbar = 1.0	  % constante de planck normalise
+mass = 1.0        % mass de la particule
+xL = -200.0       % position bord de gauche
+xR = 200.0        % position bord de droite
+omega = 0.004      % parametre pour definir le potentiel
+Delta = 0.0       % parametre pour definir le potentiel
+x0 = 0.0          % centre du paquet d'onde initial
+n = 16            % nombre d onde du paquet d'onde initial
+sigma_norm = 0.05 % ecart-type du paquet d'onde initial en unites de (xR-xL)
+
+% Detecteur:
+t_detect = -1.0  % temps de detection (un temps negatif implique pas de detection)
+xda = 130.0      % limite de droite du senseur du detecteur
+xdb = 230.0      % limite de gauche du senseur du detecteur 
+
+% Numerique :
+dt = 1.0     % pas de temps
+Ninters = 256 % nombre d'intervalles du maillage
+output_potential = output_potential.out     % output du potentiel V(x)
+output_squared_wave = output_psi2.out       % output de |psi(x,t)|^2
+output_observables = output_observables.out % output des grandeurs observables
