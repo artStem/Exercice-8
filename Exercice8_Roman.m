@@ -36,16 +36,13 @@ pi = 3.14159265358979323846264338327950288419716939937510582097494459230;
 %% Etude de convergence ================================================= %
 input = 'configuration2i.in';
 doSimulation = 0;           % 1 = TRUE    0 = FALSE
-loadData = 1;               % Pour grosse simulation déjà chargée dans MATLAB
+loadData = 0;               % Pour grosse simulation déjà chargée dans MATLAB
 %=========================================================================%
 tfin = 2000;
-Nsimul = 10;
+Nsimul = 30;
 N = round(2*logspace(3,4,Nsimul));
 %=========================================================================%
-nomFigure{1} = '8_2i_convergence_x_moy';
-nomFigure{2} = '8_2i_convergence_p_moy';
-nomFigure{3} = '8_2i_convergence_incert_x';
-nomFigure{4} = '8_2i_convergence_incert_p';
+nomFigure{1} = '8_2i_convergence';
 
 %=========================================================================%
 %=========================================================================%
@@ -77,9 +74,10 @@ end
 
 % Fit et regression linéaire sur param_fin(:,j)
 % Recuperer les valeurs convergées et calculer erreur
+beg = 10;
 for j = 1:4
     % Convergence ordre 2
-    p = polyfit(dt.^2, param_fin(:,j), 1);
+    p = polyfit(dt(beg:end).^2, param_fin(beg:end,j), 1);
     val_conv(j) = p(2);
     clear p
     % Calculer erreur
@@ -91,35 +89,74 @@ xfit = linspace(min(dt), max(dt));
 for j = 1:4
     p = polyfit(log10(dt),log10(err(:,j)),1);
     yfit(:,j) = (10^(p(2)))*xfit.^(p(1));
-    legende{j} = ['Fit : $\log (\epsilon)$ = ', num2str(p(1),'%.1f'), '$\log(\Delta t)$ + ', num2str(p(2),'%.1f')];
+    legende{j} = ['Fit slope $a$ = ', num2str(p(1),'%.2f')];
+    % legende{j} = ['Fit : $\log (\epsilon)$ = ', num2str(p(1),'%.1f'), '$\log(\Delta t)$ + ', num2str(p(2),'%.1f')];
 end
 
 % Plot ===================================
 nom_param = {'$\epsilon_{\langle x \rangle}$', '$\epsilon_{\langle p \rangle}$',...
     '$\epsilon_{\langle \Delta x \rangle}$', '$\epsilon_{\langle \Delta p \rangle}$'};
-% Regarder si besoin de changer le range du fit pour la valeur convergée
+fig{1} = figure('Name',nomFigure{1},'NumberTitle','off');
 for j=1:4
-   fig{j} = figure('Name',nomFigure{j},'NumberTitle','off');
-   loglog(dt, err(:,j), 'Displayname', 'Numerical values','linestyle', 'none', 'marker', '*');
+   loglog(dt, err(:,j), 'Displayname', nom_param{j},'linestyle', 'none', 'marker', '*');
    hold on
    grid on
    loglog(xfit,yfit(:,j), 'k--', 'Displayname', legende{j});
-   xlabel('$\Delta t$');
-   ylabel(nom_param{j});
-   legend('location', 'best');
-   hold off
+   xlabel('$\Delta t$ [s]');
+   ylabel('$\epsilon$');
+   legend('location', 'best','NumColumns',2);
 end
+set(fig{1},'Position',[100 100 900 426]);
 
-% for j=1:4
-%    figure;
-%    plot(dt.^2,param_fin(:,j), 'marker', '*');
-%    hold on
-%    grid on
-%    xlabel('$\Delta t^2$');
-%    ylabel('Resulat final');
-% end
 
-%% Save figures ==========================================================%
+%% Graphes de quantités conservées (avoir run l'étude de convergence !) = %
+%=========================================================================%
+nomFigure{2} = '8_2i_proba';
+nomFigure{3} = '8_2i_err_P_E';
+nomFigure{4} = '8_2i_Heisenberg';
+%=========================================================================%
+%=========================================================================%
+
+% Charger les données
+data = load(nomfile{end,3});
+t = data(:,1);
+Pgauche = data(:,2);
+Pdroite = data(:,3);
+Ptot = data(:,4);
+E = data(:,5);
+DeltaxDeltap = data(:,10); %(Delta x)(Delta p)
+Deltax = data(:,11);
+Deltap = data(:,12);
+
+% Proba
+fig{2} = figure('Name',nomFigure{2},'NumberTitle','off');
+hold on; grid on;
+plot(t,Pgauche, 'Displayname', '$P_{x<0}(t)$');
+plot(t,Pdroite, 'Displayname', '$P_{x>0}(t)$');
+plot(t,Ptot, 'Displayname', '$P_{tot}(t)$');
+xlabel('$t$ [s]');
+ylabel('$P$');
+legend('location', 'best');
+
+% Erreur sur Proba total et Energie
+fig{3} = figure('Name',nomFigure{3},'NumberTitle','off');
+semilogy(t,abs(Ptot - 1), 'Displayname', 'Probability');
+hold on; grid on;
+semilogy(t,abs(E-E(1))./E(1), 'Displayname', 'Energy');
+xlabel('$t$ [s]');
+ylabel('$\epsilon$');
+legend('location', 'best');
+
+% incertitude heisenberg
+fig{4} = figure('Name',nomFigure{4},'NumberTitle','off');
+plot(t, DeltaxDeltap);
+hold on; grid on;
+yline(0.5, 'k--','$\frac{\hbar}{2}$', 'fontsize', 20,'linewidth', 2,'LabelHorizontalAlignment', 'left','LabelVerticalAlignment','bottom', 'Interpreter', 'latex');
+xlabel('$t$ [s]');
+ylabel('$\langle \Delta x \rangle \cdot \langle \Delta p \rangle$');
+ylim([0.4 0.9]);
+
+%% Save figures ========================================================= %
 saveFigure = 0;         %1 = TRUE, 0 = FALSE
 sauver = 0;%[1 2 3 4 5];
 
