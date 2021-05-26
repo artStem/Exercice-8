@@ -2,7 +2,7 @@
 tfin = 30.0       % temps final de la simulation
 hbar = 1.0	  % constante de planck normalise
 mass = 1.0        % mass de la particule
-xL = -250.0       % position bord de gauche
+xL = -200.0       % position bord de gauche
 xR = 250.0        % position bord de droite
 omega = 0.25      % parametre pour definir le potentiel
 Delta = 0.0       % parametre pour definir le potentiel

@@ -113,7 +113,7 @@ int main(int argc,char **argv)
   vec_cmplx psi(Npoints);
   // TODO: initialiser le paquet d'onde, equation (4.116) du cours
   for(int i(0); i<Npoints; ++i)
-    psi[i] =  complex<double> (cos(k0*x[i]),sin(k0*x[i]))* exp(-0.5*pow(((x[i]-x0)/((xR - xL)*sigma0)),2.0)); // MODIFY
+    psi[i] =  complex<double> (cos(k0*x[i]),sin(k0*x[i]))*exp(-0.5*pow(((x[i]-x0)/(sigma0)),2.0)); // MODIFY
   // Modifications des valeurs aux bords :
   psi[0] = complex<double> (0.,0.);
   psi[Npoints-1] = complex<double> (0.,0.);
@@ -304,7 +304,7 @@ double xmoy(vec_cmplx const& psi, const vector<double>& x, double const& dx)
 {
   double resultat(0.);
   for (unsigned int i(0); i<psi.size()-2; ++i) {
-  	resultat += 0.5*dx*(x[i]*norm(psi[i]) + x[i+1]*norm(psi[i+1]));
+  	resultat += 0.5*dx*real(conj(psi[i])*x[i]*psi[i] + conj(psi[i+1])*x[i+1]*psi[i+1]);
   }
   return resultat;
 }
@@ -313,7 +313,7 @@ double x2moy(vec_cmplx const& psi, const vector<double>& x, double const& dx)
 {
   double resultat(0.);
   for (unsigned int i(0); i<psi.size()-2; ++i) {
-  	resultat += 0.5*dx*(x[i]*x[i]*norm(psi[i]) + x[i+1]*x[i+1]*norm(psi[i+1]));
+  	resultat += 0.5*dx*real(conj(psi[i])*x[i]*x[i]*psi[i] + conj(psi[i+1])*x[i+1]*x[i+1]*psi[i+1]);
   }
   return resultat;
 }
@@ -322,46 +322,33 @@ double x2moy(vec_cmplx const& psi, const vector<double>& x, double const& dx)
 double pmoy(vec_cmplx const& psi, double const& dx)
 {
   complex<double> complex_i = complex<double> (0,1); // Nombre imaginaire i
-  vec_cmplx p_on_psi(psi.size());
-  unsigned int N(psi.size());
+  // unsigned int N(psi.size());
   // Utiliser la definition de p = -i hbar d/dx
   // Utiliser les differences finies centrees pour d/dx
   // Utiliser la formule des trapezes pour l'integration sur x
   // Ignorer la contribution du premier et du dernier point de maillage
-  p_on_psi[0] = -complex_i * (psi[1] - psi[0])/dx;
-  for (unsigned int i(1); i<N-2; ++i) {
-  	p_on_psi[i] = -complex_i * 0.5*(psi[i+1] - psi[i-1])/dx;
-  }
-  p_on_psi.back() = -complex_i * (psi[N-2] - psi.back())/dx;
+  complex<double> resultat(0.,0.);
+  // Donner les contributions extremales
+  resultat += (conj(psi[0])*(psi[1] - psi[0]));
+  resultat += (conj(psi.back())*(psi.back() - psi[psi.size()-2]));
+  // Boucler pour avoir les autres contributions
+  for (unsigned int i(1); i<psi.size()-2; ++i) resultat += (conj(psi[i])*(psi[i+1] - psi[i-1]));
+  // Multiplier par le bon facteur
+  resultat *= (-complex_i/2.0);
 
-
-  double resultat(0.);
-  for (unsigned int i(0); i<N-2; ++i) {
-  	resultat += 0.5*dx*real(conj(psi[i])*p_on_psi[i] + conj(psi[i+1])*p_on_psi[i+1]);
-  }
-  return resultat;
+  return real(resultat);
 }
 
 
 double p2moy(vec_cmplx const& psi, double const& dx)
 {
   double resultat(0.);
-  vec_cmplx pp_on_psi(psi.size());
   // Utiliser la definition de p^2 = - hbar^2 d^2/dx2
   // Utiliser les differences finies centrees pour d^2/dx^2
   // Utiliser la formule des trapezes pour l'integration sur x
   // Ignorer la contribution du premier et du dernier point de maillage
-  pp_on_psi[0] = 0;
-  for (unsigned int i(1); i<psi.size()-2; ++i) {
-  	pp_on_psi[i] = (2.0*psi[i] - psi[i+1] - psi[i-1])/(dx*dx);
-  }
-  pp_on_psi.back() = 0;
-
-
-  for (unsigned int i(0); i<psi.size()-2; ++i) {
-  	resultat += 0.5*dx*real(conj(psi[i])*pp_on_psi[i] + conj(psi[i+1])*pp_on_psi[i+1]);
-  }
-
+  for (unsigned int i(1); i<psi.size()-2; ++i) resultat += real(conj(psi[i])*(psi[i+1] - 2.0*psi[i] + psi[i-1]));
+  resultat /= -dx;
   return resultat;
 }
 
